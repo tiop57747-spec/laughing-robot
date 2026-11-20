@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#222">
+<title>Автохлам 3D</title>
+<style>
+:root{ --ui:1; }
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#87ceeb; font-family:sans-serif; touch-action:none; overscroll-behavior:none; }
+canvas{ display:block; }
+#hud{ position:fixed; top:0; left:0; right:0; padding:calc(8px*var(--ui)) calc(12px*var(--ui)); display:flex; justify-content:space-between; pointer-events:none; z-index:5; }
+#coins{ font-size:calc(20px*var(--ui)); color:#fff; text-shadow:0 1px 3px #000; }
+#dist{ font-size:calc(14px*var(--ui)); color:#fff; text-shadow:0 1px 3px #000; margin-top:2px; }
+#dmgwrap{ width:calc(180px*var(--ui)); }
+#dmglabel{ color:#fff; font-size:calc(12px*var(--ui)); text-shadow:0 1px 3px #000; text-align:right; margin-bottom:3px; }
+#dmgor{ height:calc(14px*var(--ui)); background:rgba(0,0,0,.4); border-radius:8px; overflow:hidden; }
+#dmgbar{ height:100%; width:100%; background:#4caf50; transition:width .2s, background .2s; }
+.pedal{ position:fixed; width:calc(88px*var(--ui)); height:calc(88px*var(--ui)); border-radius:50%;
+ background:rgba(0,0,0,.28); border:2px solid rgba(255,255,255,.45); color:#fff;
+ font-size:calc(34px*var(--ui)); display:flex; align-items:center; justify-content:center;
+ user-select:none; -webkit-user-select:none; touch-action:none; z-index:6; }
+.pedal:active,.pedal.on{ background:rgba(255,255,255,.35); }
+#gasBtn{ right:calc(16px*var(--ui)); bottom:calc(18px*var(--ui)); }
+#brakeBtn{ right:calc(118px*var(--ui)); bottom:calc(18px*var(--ui)); }
+#leftBtn{ left:calc(16px*var(--ui)); bottom:calc(18px*var(--ui)); }
+#rightBtn{ left:calc(118px*var(--ui)); bottom:calc(18px*var(--ui)); }
+#nitroBtn{ right:calc(16px*var(--ui)); bottom:calc(118px*var(--ui)); width:calc(70px*var(--ui)); height:calc(52px*var(--ui)); border-radius:14px; font-size:calc(15px*var(--ui)); }
+.iconbtn{ position:fixed; z-index:7; width:calc(44px*var(--ui)); height:calc(44px*var(--ui)); border-radius:10px;
+ background:rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.4); color:#fff; font-size:calc(20px*var(--ui));
+ display:flex; align-items:center; justify-content:center; user-select:none; touch-action:none; }
+#garageBtn{ top:calc(60px*var(--ui)); left:calc(10px*var(--ui)); }
+#setBtn{ top:calc(112px*var(--ui)); left:calc(10px*var(--ui)); }
+#fsBtn{ top:calc(164px*var(--ui)); left:calc(10px*var(--ui)); }
+#speedo{ position:fixed; right:calc(14px*var(--ui)); top:calc(64px*var(--ui)); color:#fff; text-align:right; text-shadow:0 1px 3px #000; z-index:5; pointer-events:none; }
+#speedo .num{ font-size:calc(34px*var(--ui)); font-weight:bold; }
+#speedo .unit{ font-size:calc(13px*var(--ui)); }
+.overlay{ position:fixed; inset:0; background:rgba(0,0,0,.82); z-index:20; display:none; align-items:flex-start; justify-content:center; overflow-y:auto; padding:16px; }
+.overlay.show{ display:flex; }
+.panel{ background:#263238; color:#eee; border-radius:14px; max-width:520px; width:100%; padding:18px; margin:auto; max-height:90vh; overflow-y:auto; }
+.panel h2{ margin:0 0 10px; color:#ffd54f; }
+.carcard{ background:rgba(255,255,255,.07); border-radius:10px; padding:10px 12px; margin-bottom:10px; }
+.carcard b{ color:#fff; }
+.carcard .stats{ font-size:13px; color:#b0bec5; margin:4px 0; }
+.btn{ display:inline-block; border:0; border-radius:8px; padding:9px 16px; font-size:15px; font-weight:bold; cursor:pointer; margin-right:8px; margin-top:6px; }
+.buy{ background:#43a047; color:#fff; }
+.sel{ background:#1e88e5; color:#fff; }
+.own{ background:#607d8b; color:#fff; }
+.rep{ background:#fb8c00; color:#fff; }
+.red{ background:#c62828; color:#fff; }
+.yel{ background:#fbc02d; color:#222; }
+.small{ font-size:12px; color:#90a4ae; margin-top:12px; }
+select{ font-size:15px; padding:6px; border-radius:6px; margin:6px 0 14px; }
+#msg{ position:fixed; top:40%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,.75); color:#fff;
+ padding:16px 24px; border-radius:12px; font-size:calc(18px*var(--ui)); z-index:15; display:none; text-align:center; max-width:80%; }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div>
+    <div id="coins">🪙 0</div>
+    <div id="dist">0.0 км | рекорд: 0.0 км</div>
+  </div>
+  <div id="dmgwrap">
+    <div id="dmglabel">Состояние: 100%</div>
+    <div id="dmgor"><div id="dmgbar"></div></div>
+  </div>
+</div>
+<div id="speedo"><span class="num">0</span><span class="unit"> км/ч</span></div>
+<div id="msg"></div>
+
+<div class="pedal" id="gasBtn">⛽</div>
+<div class="pedal" id="brakeBtn">🛑</div>
+<div class="pedal" id="leftBtn">◀</div>
+<div class="pedal" id="rightBtn">▶</div>
+<div class="pedal" id="nitroBtn">NITRO</div>
+
+<div class="iconbtn" id="garageBtn">🔧</div>
+<div class="iconbtn" id="setBtn">⚙️</div>
+<div class="iconbtn" id="fsBtn">🖥️</div>
+
+<div class="overlay" id="garage"><div class="panel">
+  <h2>🔧 Гараж</h2>
+  <div id="garageList"></div>
+  <button class="btn rep" onclick="repairCar()">🔧 Починить (<span id="repcost"></span> 🪙)</button>
+  <div style="margin-top:14px;"><button class="btn" style="background:#546e77;color:#fff;" onclick="closeAll()">Закрыть</button></div>
+  <div class="small">🔑 Админ-панель оригинала — нажмите на значок ниже</div>
+  <div style="margin-top:8px;"><span class="iconbtn" style="position:static;display:inline-flex;width:40px;height:40px;font-size:18px;" onclick="adminLogin()">🔑</span></div>
+</div></div>
+
+<div class="overlay" id="adminpanel"><div class="panel">
+  <h2>🔑 Админ-панель</h2>
+  <button class="btn yel" onclick="adminCoins()">🪙 +1000 монет</button>
+  <button class="btn rep" onclick="adminFix()">🔧 Починить машину</button>
+  <button class="btn sel" onclick="adminUnlock()">🚙 Открыть все машины</button>
+  <button class="btn red" onclick="adminWipe()">❌ УДАЛИТЬ ВСЁ ПРОГРЕСС</button>
+  <div style="margin-top:14px;"><button class="btn own" onclick="closeAll()">Закрыть</button></div>
+</div></div>
+
+<div class="overlay" id="settings"><div class="panel">
+  <h2>⚙️ Настройки графики</h2>
+  <div>Качество картинки</div>
+  <select id="qualSel" onchange="saveSettings()">
+    <option value="auto">Авто</option><option value="low">Низкое</option>
+    <option value="med">Среднее</option><option value="high">Высокое</option>
+  </select>
+  <div>Размер интерфейса</div>
+  <select id="uiSel" onchange="saveSettings()">
+    <option value="mid">Обычный</option><option value="small">Мелкий</option><option value="big">Крупный</option>
+  </select>
+  <div class="small">Если игра тормозит — включите «Низкое». Настройки сохраняются.</div>
+  <button class="btn own" onclick="closeAll()">Закрыть</button>
+</div></div>
+
+<div class="overlay" id="crashov"><div class="panel">
+  <h2>💥 Машина разбита!</h2>
+  <p>Кузов на 100% повреждён — дальше не поедет. Откройте гараж и почините машину за монетки.</p>
+  <button class="btn rep" onclick="openGarage()">🔧 В гараж</button>
+  <button class="btn own" onclick="closeAll()">Позже</button>
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const ADMIN_PASS='admin123';
+const SAVE_KEY='car3d_save';
+
+const CARS=[
+ {id:'vaz', name:'Жигули ВАЗ-2101', price:0,    speed:60,  dur:70,  repair:80,  accel:30, color:0x4a90d9},
+ {id:'oka', name:'Ока',              price:120,  speed:50,  dur:60,  repair:50,  accel:25, color:0xcfd8dc},
+ {id:'mos', name:'Москвич-412',      price:250,  speed:65,  dur:75,  repair:90,  accel:32, color:0xf4f1e8},
+ {id:'pik', name:'Пикап',            price:300,  speed:62,  dur:95,  repair:110, accel:30, color:0x6d4c41},
+ {id:'niv', name:'Нива',             price:400,  speed:68,  dur:85,  repair:100, accel:34, color:0x2e7d32},
+ {id:'vol', name:'Волга ГАЗ-24',     price:550,  speed:72,  dur:80,  repair:120, accel:36, color:0xeceff1},
+ {id:'uaz', name:'УАЗ Патриот',      price:700,  speed:66,  dur:100, repair:130, accel:32, color:0x33691e},
+ {id:'spo', name:'Спорткар',         price:800,  speed:95,  dur:55,  repair:200, accel:50, color:0xd32f2f},
+ {id:'ves', name:'Лада Веста',       price:850,  speed:80,  dur:80,  repair:150, accel:42, color:0xfbc02d},
+ {id:'bmw', name:'BMW M3',           price:1200, speed:95,  dur:75,  repair:220, accel:50, color:0x212121},
+ {id:'mer', name:'Mercedes S-класс', price:1600, speed:90,  dur:90,  repair:260, accel:48, color:0x9e9e9e},
+ {id:'mol', name:'Суперкар «Молния»',price:2500, speed:120, dur:65,  repair:320, accel:60, color:0xff1744},
+];
+
+let state={coins:0, damage:0, owned:{vaz:true}, current:'vaz', record:0, moneyKm:0};
+let settings={quality:'auto', ui:'mid'};
+
+try{ const s=localStorage.getItem(SAVE_KEY); if(s) state=Object.assign(state, JSON.parse(s)); }catch(e){}
+try{ const st=localStorage.getItem(SAVE_KEY+'_set'); if(st) settings=Object.assign(settings, JSON.parse(st)); }catch(e){}
+function save(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }catch(e){} }
+function saveSettings(){
+  settings.quality=document.getElementById('qualSel').value;
+  settings.ui=document.getElementById('uiSel').value;
+  try{ localStorage.setItem(SAVE_KEY+'_set', JSON.stringify(settings)); }catch(e){}
+  applySettings();
+}
+function applySettings(){
+  document.documentElement.style.setProperty('--ui', settings.ui==='small'?0.8:(settings.ui==='big'?1.3:1));
+  let pr;
+  if(settings.quality==='low') pr=0.6;
+  else if(settings.quality==='med') pr=1;
+  else if(settings.quality==='high') pr=Math.min(window.devicePixelRatio||1,2);
+  else pr=(navigator.hardwareConcurrency&&navigator.hardwareConcurrency>=6)?Math.min(window.devicePixelRatio||1,1.5):1;
+  if(renderer) renderer.setPixelRatio(pr);
+}
+
+// ===== Three.js сцена =====
+let scene,camera,renderer,carGroup,bodyMesh,wheels=[];
+let movers=[], spawnT=0, treeT=0, stripeT=0;
+let speed=0, posX=0, dist=0, crashed=false, shake=0;
+const LANES=[-3.7,0,3.7];
+let gasHeld=false, brakeHeld=false, leftHeld=false, rightHeld=false, nitroHeld=false;
+let keys={};
+
+function init3d(){
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x87ceeb);
+  scene.fog=new THREE.Fog(0x87ceeb, 60, 200);
+  camera=new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 500);
+
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(innerWidth, innerHeight);
+  document.body.insertBefore(renderer.domElement, document.body.firstChild);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+  const sun=new THREE.DirectionalLight(0xffffff, 0.8);
+  sun.position.set(20,40,10); scene.add(sun);
+
+  // земля
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(300,600), new THREE.MeshLambertMaterial({color:0x4a8f3c}));
+  ground.rotation.x=-Math.PI/2; ground.position.z=-200; scene.add(ground);
+  // дорога
+  const road=new THREE.Mesh(new THREE.PlaneGeometry(13,600), new THREE.MeshLambertMaterial({color:0x37474f}));
+  road.rotation.x=-Math.PI/2; road.position.set(0,0.02,-200); scene.add(road);
+
+  buildPlayerCar();
+  addEventListener('resize', onResize);
+  applySettings();
+}
+function onResize(){
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+}
+
+function buildPlayerCar(){
+  if(carGroup){ scene.remove(carGroup); }
+  const def=CARS.find(c=>c.id===state.current);
+  carGroup=new THREE.Group();
+  const mat=new THREE.MeshLambertMaterial({color:def.color});
+  bodyMesh=new THREE.Mesh(new THREE.BoxGeometry(2,0.8,4.4), mat);
+  bodyMesh.position.y=0.7; carGroup.add(bodyMesh);
+  const cab=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.6,2), new THREE.MeshLambertMaterial({color:0x263238}));
+  cab.position.set(0,1.35,0.2); carGroup.add(cab);
+  const glass=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.4,0.1), new THREE.MeshLambertMaterial({color:0x81d4fa}));
+  glass.position.set(0,1.35,-0.85); carGroup.add(glass);
+  wheels=[];
+  const wgeo=new THREE.CylinderGeometry(0.42,0.42,0.35,12);
+  const wmat=new THREE.MeshLambertMaterial({color:0x111111});
+  [[-1.05,-1.4],[1.05,-1.4],[-1.05,1.5],[1.05,1.5]].forEach(p=>{
+    const w=new THREE.Mesh(wgeo,wmat);
+    w.rotation.z=Math.PI/2; w.position.set(p[0],0.42,p[1]); carGroup.add(w); wheels.push(w);
+  });
+  scene.add(carGroup);
+  paintDamage();
+}
+function paintDamage(){
+  if(!bodyMesh) return;
+  const def=CARS.find(c=>c.id===state.current);
+  const c=new THREE.Color(def.color);
+  const dark=new THREE.Color(0x333333);
+  c.lerp(dark, Math.min(state.damage,100)/100*0.7);
+  bodyMesh.material.color.copy(c);
+}
+
+function makeTraffic(color){
+  const g=new THREE.Group();
+  const b=new THREE.Mesh(new THREE.BoxGeometry(2,1.1,4.4), new THREE.MeshLambertMaterial({color:color}));
+  b.position.y=0.75; g.add(b);
+  const cab=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.6,2), new THREE.MeshLambertMaterial({color:0x37474f}));
+  cab.position.set(0,1.4,0.2); g.add(cab);
+  return g;
+}
+function spawn(){
+  const lane=LANES[Math.floor(Math.random()*3)];
+  const r=Math.random();
+  let m, type;
+  if(r<0.4){ // монетка
+    m=new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.55,0.12,16),
+      new THREE.MeshLambertMaterial({color:0xffd600, emissive:0x996b00}));
+    m.rotation.x=Math.PI/2; type='coin';
+  } else if(r<0.75){ // конус
+    m=new THREE.Mesh(new THREE.ConeGeometry(0.45,1,10), new THREE.MeshLambertMaterial({color:0xff6d00}));
+    m.position.y=0.5; type='cone';
+  } else { // встречная машина
+    m=makeTraffic([0xe53935,0x1e88e5,0x8e24aa,0x00897b][Math.floor(Math.random()*4)]);
+    type='traffic';
+  }
+  m.position.x=lane; m.position.z=-170;
+  if(type==='coin') m.position.y=1;
+  scene.add(m); movers.push({mesh:m, type:type, vy:type==='traffic'?20:0});
+}
+function spawnTree(){
+  const side=Math.random()<0.5?-1:1;
+  const g=new THREE.Group();
+  const tr=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.3,2,6), new THREE.MeshLambertMaterial({color:0x5d4037}));
+  tr.position.y=1; g.add(tr);
+  const cr=new THREE.Mesh(new THREE.ConeGeometry(1.4,3,8), new THREE.MeshLambertMaterial({color:0x1b5e20}));
+  cr.position.y=3.2; g.add(cr);
+  g.position.set(side*(9+Math.random()*14), 0, -180);
+  scene.add(g); movers.push({mesh:g, type:'tree', vy:0});
+}
+function spawnStripe(){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(0.25,0.02,3), new THREE.MeshLambertMaterial({color:0xffffff}));
+  m.position.set(0,0.03,-160);
+  scene.add(m); movers.push({mesh:m, type:'stripe', vy:0});
+}
+
+function hit(obstacle){
+  const rel=speed;
+  if(obstacle==='cone') state.damage+=6+rel*0.15;
+  else state.damage+=12+rel*0.3;
+  speed*=0.3; shake=0.5;
+  if(state.damage>=100){ state.damage=100; crashed=true; speed=0;
+    document.getElementById('crashov').classList.add('show'); }
+  save(); updHud(); paintDamage();
+}
+
+function updHud(){
+  document.getElementById('coins').textContent='🪙 '+Math.floor(state.coins);
+  document.getElementById('dist').textContent=dist.toFixed(1)+' км | рекорд: '+state.record.toFixed(1)+' км';
+  const d=Math.round(state.damage);
+  document.getElementById('dmglabel').textContent='Состояние: '+d+'%';
+  const bar=document.getElementById('dmgbar');
+  bar.style.width=(100-d)+'%';
+  bar.style.background= d>66?'#e53935':(d>33?'#fb8c00':'#4caf50');
+}
+
+function openGarage(){
+  const list=document.getElementById('garageList');
+  list.innerHTML='';
+  CARS.forEach(c=>{
+    const owned=!!state.owned[c.id];
+    const cur=state.current===c.id;
+    const dots=n=>'●'.repeat(n)+'○'.repeat(5-n);
+    const div=document.createElement('div');
+    div.className='carcard';
+    div.innerHTML='<b>'+c.name+'</b> '+(cur?'<span style="color:#4caf50;">(выбрана)</span>':'')+
+      '<div class="stats">Скорость '+dots(Math.round(c.speed/24))+' | Прочность '+dots(Math.round(c.dur/20))+
+      '<br>Ремонт: 🪙 '+c.repair+(owned?'':' | Цена: 🪙 '+c.price)+'</div>';
+    const btn=document.createElement('button');
+    if(owned){ btn.className='btn '+(cur?'own':'sel'); btn.textContent=cur?'Ваш выбор':'Выбрать';
+      btn.onclick=()=>{ state.current=c.id; buildPlayerCar(); save(); closeAll(); }; }
+    else { btn.className='btn buy'; btn.textContent='Купить 🪙 '+c.price;
+      btn.onclick=()=>{ if(state.coins>=c.price){ state.coins-=c.price; state.owned[c.id]=true; state.current=c.id;
+        buildPlayerCar(); save(); updHud(); openGarage(); } else { alert('Не хватает монеток! Нужно 🪙 '+c.price); } }; }
+    div.appendChild(btn);
+    list.appendChild(div);
+  });
+  document.getElementById('repcost').textContent=repairCost();
+  document.getElementById('garage').classList.add('show');
+}
+function repairCost(){ return Math.round(CARS.find(c=>c.id===state.current).repair*state.damage/100); }
+function repairCar(){
+  const cost=repairCost();
+  if(state.damage<=0){ alert('Машина и так цела!'); return; }
+  if(state.coins>=cost){ state.coins-=cost; state.damage=0; crashed=false; paintDamage(); save(); updHud(); openGarage(); }
+  else alert('Не хватает монеток! Нужно 🪙 '+cost);
+}
+function adminLogin(){
+  const p=prompt('Введите админ-пароль:');
+  if(p===ADMIN_PASS) document.getElementById('adminpanel').classList.add('show');
+  else if(p!==null) alert('Неверный пароль!');
+}
+function adminCoins(){ state.coins+=1000; save(); updHud(); }
+function adminFix(){ state.damage=0; crashed=false; paintDamage(); save(); updHud(); }
+function adminUnlock(){ CARS.forEach(c=>state.owned[c.id]=true); save(); }
+function adminWipe(){
+  if(confirm('Точно удалить ВЕСЬ прогресс? Монетки, машины и рекорд исчезнут!')){
+    try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
+    location.reload();
+  }
+}
+function closeAll(){ document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('show')); }
+
+// ===== управление =====
+function bindHold(id, prop){
+  const el=document.getElementById(id);
+  const on=e=>{ e.preventDefault(); window[prop]=true; el.classList.add('on'); };
+  const off=e=>{ e.preventDefault(); window[prop]=false; el.classList.remove('on'); };
+  el.addEventListener('pointerdown', on);
+  el.addEventListener('pointerup', off);
+  el.addEventListener('pointercancel', off);
+  el.addEventListener('pointerleave', off);
+}
+bindHold('gasBtn','gasHeld'); bindHold('brakeBtn','brakeHeld');
+bindHold('leftBtn','leftHeld'); bindHold('rightBtn','rightHeld');
+bindHold('nitroBtn','nitroHeld');
+document.getElementById('garageBtn').addEventListener('pointerdown', e=>{ e.preventDefault(); openGarage(); });
+document.getElementById('setBtn').addEventListener('pointerdown', e=>{ e.preventDefault();
+  document.getElementById('qualSel').value=settings.quality;
+  document.getElementById('uiSel').value=settings.ui;
+  document.getElementById('settings').classList.add('show'); });
+document.getElementById('fsBtn').addEventListener('pointerdown', e=>{ e.preventDefault();
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
+  else document.exitFullscreen(); });
+document.addEventListener('keydown', e=>{
+  keys[e.code]=true;
+  if(e.code==='KeyG') openGarage();
+  if(e.code==='Escape') closeAll();
+});
+document.addEventListener('keyup', e=>{ keys[e.code]=false; });
+
+let last=performance.now();
+function loop(now){
+  requestAnimationFrame(loop);
+  let dt=(now-last)/1000; last=now;
+  if(dt>0.05) dt=0.05;
+
+  const def=CARS.find(c=>c.id===state.current);
+  const maxV=def.speed*(nitroHeld?1.6:1);
+  const accel=def.accel*(nitroHeld?1.5:1);
+
+  const gas=gasHeld||keys['ArrowUp']||keys['KeyW']||keys['KeyЦ'];
+  const brake=brakeHeld||keys['ArrowDown']||keys['KeyS']||keys['KeyЫ'];
+  const L=leftHeld||keys['ArrowLeft']||keys['KeyA']||keys['KeyФ'];
+  const R=rightHeld||keys['ArrowRight']||keys['KeyD']||keys['KeyВ'];
+
+  if(!crashed){
+    if(gas) speed+=accel*dt; else speed-=15*dt;
+    if(brake) speed-=70*dt;
+    if(!gas&&!brake&&speed<0.5) speed=0;
+    speed=Math.max(0, Math.min(speed, maxV));
+    const steer=(R?1:0)-(L?1:0);
+    posX+=steer*8*dt;
+    posX=Math.max(-4.6, Math.min(4.6, posX));
+  } else speed=0;
+
+  dist+=speed*dt/1000;
+  state.moneyKm+=speed*dt/1000;
+  if(state.moneyKm>=5){ state.coins+=Math.floor(state.moneyKm/5)*5; state.moneyKm%=5; save(); }
+  if(dist>state.record){ state.record=dist; save(); }
+
+  // спавн
+  spawnT-=dt; if(spawnT<=0){ spawn(); spawnT=0.9+Math.random()*0.6; }
+  treeT-=dt; if(treeT<=0){ spawnTree(); treeT=1.2; }
+  stripeT-=dt; if(stripeT<=0){ spawnStripe(); stripeT=3; }
+
+  // движение объектов
+  for(let i=movers.length-1;i>=0;i--){
+    const o=movers[i];
+    const rel=(o.type==='traffic')?(speed-o.vy):speed;
+    o.mesh.position.z+=rel*dt;
+    if(o.type==='coin') o.mesh.rotation.z+=3*dt;
+    const dz=Math.abs(o.mesh.position.z);
+    const dx=Math.abs(o.mesh.position.x-posX);
+    if(!crashed){
+      if(o.type==='coin'&&dz<1.2&&dx<1.1){
+        state.coins+=10; save(); updHud();
+        scene.remove(o.mesh); movers.splice(i,1); continue;
+      }
+      if((o.type==='cone'&&dz<1.6&&dx<1.2)||(o.type==='traffic'&&dz<2.4&&dx<1.7)){
+        hit(o.type);
+        if(o.type==='cone'){ scene.remove(o.mesh); movers.splice(i,1); continue; }
+        o.mesh.position.x+=(o.mesh.position.x>posX?2:-2);
+      }
+    }
+    if(o.mesh.position.z>15){ scene.remove(o.mesh); movers.splice(i,1); }
+  }
+
+  // машина и камера
+  carGroup.position.x=posX;
+  carGroup.rotation.y=-( (R?1:0)-(L?1:0) )*0.25;
+  wheels.forEach(w=>w.rotation.x-=speed*dt*2);
+  if(shake>0){
+    shake-=dt*2;
+    camera.position.set(posX*0.5+(Math.random()-0.5)*shake, 4.6+(Math.random()-0.5)*shake, 9);
+  } else {
+    camera.position.set(posX*0.5, 4.6, 9);
+  }
+  camera.lookAt(posX*0.5, 1, -12);
+
+  document.getElementById('speedo').getElementsByClassName('num')[0].textContent=Math.round(speed);
+  renderer.render(scene, camera);
+}
+
+init3d();
+applySettings();
+updHud();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Автохлам — сайт и игра в одном файле</title>
+<style>
+  :root { --uiscale: 1; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#0b1020; color:#fff; font-family:'Segoe UI',Roboto,Arial,sans-serif; }
+  .screen { position:fixed; inset:0; display:none; flex-direction:column; }
+  .screen.active { display:flex; }
+
+  /* ===== САЙТ (витрина) ===== */
+  #site { background:linear-gradient(180deg,#0b1020,#16213e); align-items:center; justify-content:center; text-align:center; padding:20px; overflow-y:auto; }
+  #site h1 { font-size:calc(34px*var(--uiscale)); margin:10px 0 4px; }
+  #site .sub { opacity:.8; margin-bottom:22px; }
+  .bigbtn { display:block; width:min(420px,92vw); margin:10px auto; padding:16px; font-size:calc(20px*var(--uiscale)); font-weight:bold; border:none; border-radius:14px; cursor:pointer; color:#fff; }
+  .bigbtn.orig { background:linear-gradient(135deg,#2e7d32,#66bb6a); }
+  .bigbtn.beta { background:linear-gradient(135deg,#b71c1c,#ef5350); }
+  .badge { display:inline-block; background:#ffd54f; color:#333; font-size:12px; padding:2px 8px; border-radius:8px; margin-left:6px; }
+  .carslist { margin-top:18px; font-size:calc(14px*var(--uiscale)); opacity:.85; max-width:520px; }
+  .hint { margin-top:14px; font-size:12px; opacity:.6; }
+
+  /* ===== ИГРА ===== */
+  #game { background:#87CEEB; }
+  #cv { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .hud { position:absolute; top:0; left:0; right:0; padding:10px; display:flex; justify-content:space-between; align-items:flex-start; pointer-events:none; text-shadow:0 1px 3px rgba(0,0,0,.7); font-size:calc(16px*var(--uiscale)); }
+  .hud .left b { font-size:calc(20px*var(--uiscale)); }
+  .dmgwrap { width:min(46vw,260px); }
+  .dmgbar { height:calc(14px*var(--uiscale)); background:rgba(0,0,0,.45); border-radius:8px; overflow:hidden; }
+  .dmgfill { height:100%; width:0%; background:#4caf50; transition:width .2s; }
+  .sidebtns { position:absolute; top:60px; left:10px; display:flex; flex-direction:column; gap:10px; }
+  .sq { width:calc(52px*var(--uiscale)); height:calc(52px*var(--uiscale)); border-radius:12px; border:2px solid rgba(255,255,255,.7); background:rgba(20,30,50,.55); color:#fff; font-size:calc(22px*var(--uiscale)); pointer-events:auto; cursor:pointer; }
+  .sq:active { background:rgba(255,255,255,.25); }
+  .speedo { position:absolute; top:70px; right:14px; font-size:calc(22px*var(--uiscale)); font-weight:bold; text-shadow:0 1px 4px #000; }
+
+  .controls { position:absolute; bottom:0; left:0; right:0; padding:calc(12px*var(--uiscale)); display:flex; justify-content:space-between; align-items:flex-end; }
+  .steer { display:flex; gap:calc(12px*var(--uiscale)); }
+  .cbtn { width:calc(68px*var(--uiscale)); height:calc(68px*var(--uiscale)); border-radius:50%; border:2px solid rgba(255,255,255,.8); background:rgba(20,30,50,.6); color:#fff; font-size:calc(26px*var(--uiscale)); pointer-events:auto; user-select:none; touch-action:none; }
+  .cbtn:active { background:rgba(255,255,255,.3); }
+  .pedals { display:flex; gap:calc(12px*var(--uiscale)); align-items:flex-end; }
+  .pedal { width:calc(78px*var(--uiscale)); height:calc(96px*var(--uiscale)); border-radius:calc(14px*var(--uiscale)); border:2px solid rgba(255,255,255,.85); color:#fff; font-weight:bold; font-size:calc(15px*var(--uiscale)); display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:auto; user-select:none; touch-action:none; }
+  .pedal.gas { background:rgba(27,122,42,.85); }
+  .pedal.brk { background:rgba(150,28,28,.85); }
+  .pedal:active { transform:translateY(2px); }
+  .nitro { width:calc(56px*var(--uiscale)); height:calc(56px*var(--uiscale)); border-radius:50%; background:rgba(255,193,7,.9); color:#222; border:2px solid #fff; font-weight:bold; font-size:calc(12px*var(--uiscale)); pointer-events:auto; user-select:none; touch-action:none; }
+
+  /* ===== ПАНЕЛИ ===== */
+  .panel { position:absolute; inset:0; background:rgba(5,10,25,.93); display:none; flex-direction:column; align-items:center; padding:16px; overflow-y:auto; }
+  .panel.active { display:flex; }
+  .panel h2 { margin:8px 0 12px; }
+  .carcard { width:min(560px,94vw); background:rgba(255,255,255,.07); border-radius:12px; padding:10px 12px; margin:6px 0; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .carcard .info { text-align:left; }
+  .carcard .name { font-weight:bold; font-size:calc(16px*var(--uiscale)); }
+  .carcard .stats { font-size:calc(12px*var(--uiscale)); opacity:.85; }
+  .carcard button { padding:8px 12px; border:none; border-radius:8px; font-weight:bold; cursor:pointer; }
+  .cbuy { background:#ffb300; color:#222; }
+  .csel { background:#43a047; color:#fff; }
+  .cdis { background:#555; color:#aaa; cursor:default; }
+  .prow { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:8px 0; }
+  .pbtn { padding:12px 16px; border:none; border-radius:10px; font-size:calc(15px*var(--uiscale)); font-weight:bold; cursor:pointer; }
+  .green { background:#43a047; color:#fff; }
+  .amber { background:#ffb300; color:#222; }
+  .blue { background:#1e88e5; color:#fff; }
+  .red { background:#c62828; color:#fff; }
+  .grey { background:#455a64; color:#fff; }
+  .seg { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
+  .seg button { padding:8px 12px; border-radius:8px; border:1px solid #666; background:#223; color:#fff; cursor:pointer; }
+  .seg button.on { background:#1e88e5; border-color:#1e88e5; }
+  .note { font-size:12px; opacity:.7; margin-top:8px; text-align:center; }
+  .admkey { margin-top:14px; background:none; border:none; font-size:20px; opacity:.5; cursor:pointer; }
+  #crashpanel { background:rgba(90,0,0,.93); }
+  .bigcoins { font-size:calc(26px*var(--uiscale)); font-weight:bold; margin:6px 0; }
+</style>
+</head>
+<body>
+
+<!-- ===== ЭКРАН 1: САЙТ ===== -->
+<div class="screen active" id="site">
+  <h1>🚗 АВТОХЛАМ</h1>
+  <div class="sub">Гонки, аварии, ремонт и 12 машин — всё в одном файле</div>
+  <button class="bigbtn orig" onclick="startVersion('orig')">▶ ИГРАТЬ — ОРИГИНАЛ</button>
+  <button class="bigbtn beta" onclick="startVersion('beta')">▶ ИГРАТЬ — BETA <span class="badge">NITRO</span></button>
+  <div class="carslist" id="carslist"></div>
+  <div class="hint">Управление: на телефоне — кнопки и педали на экране, на компьютере — стрелки/WASD, G — гараж.<br>Прогресс сохраняется автоматически.</div>
+</div>
+
+<!-- ===== ЭКРАН 2: ИГРА ===== -->
+<div class="screen" id="game">
+  <canvas id="cv"></canvas>
+  <div class="hud">
+    <div class="left">🪙 <b id="hCoins">0</b><br><span id="hDist">0.0 км | рекорд: 0.0 км</span></div>
+    <div class="dmgwrap"><div style="text-align:right;font-size:calc(13px*var(--uiscale))">Состояние: <span id="hDmg">0%</span></div><div class="dmgbar"><div class="dmgfill" id="hDmgFill"></div></div></div>
+  </div>
+  <div class="sidebtns">
+    <button class="sq" id="bGarage" title="Гараж">🔧</button>
+    <button class="sq" id="bSet" title="Настройки">⚙️</button>
+    <button class="sq" id="bFs" title="Во весь экран">🖥️</button>
+    <button class="sq" id="bSite" title="На сайт">🏠</button>
+  </div>
+  <div class="speedo" id="hSpeed">0 км/ч</div>
+  <div class="controls">
+    <div class="steer">
+      <button class="cbtn" id="cL">◀</button>
+      <button class="cbtn" id="cR">▶</button>
+    </div>
+    <div class="pedals">
+      <button class="nitro" id="cN" style="display:none">NITRO</button>
+      <button class="pedal brk" id="cB">🛑<br>ТОРМОЗ</button>
+      <button class="pedal gas" id="cG">⛽<br>ГАЗ</button>
+    </div>
+  </div>
+
+  <!-- Гараж -->
+  <div class="panel" id="pGarage">
+    <h2>🔧 ГАРАЖ</h2>
+    <div class="bigcoins">🪙 <span id="gCoins">0</span></div>
+    <div id="gCars"></div>
+    <button class="pbtn green" onclick="closeAll()">▶ ПРОДОЛЖИТЬ</button>
+    <button class="admkey" id="admBtn" title="Админ-панель">🔑</button>
+  </div>
+
+  <!-- Настройки -->
+  <div class="panel" id="pSet">
+    <h2>⚙️ НАСТРОЙКИ ГРАФИКИ</h2>
+    <div class="carcard"><div class="info"><div class="name">Качество картинки</div><div class="stats">На слабом телефоне ставьте «Низкое»</div></div></div>
+    <div class="seg" id="segQ"></div>
+    <div class="carcard" style="margin-top:12px"><div class="info"><div class="name">Размер интерфейса</div><div class="stats">Кнопки и текст крупнее/мельче</div></div></div>
+    <div class="seg" id="segUI"></div>
+    <button class="pbtn green" style="margin-top:18px" onclick="closeAll()">▶ ПРОДОЛЖИТЬ</button>
+  </div>
+
+  <!-- Авария -->
+  <div class="panel" id="crashpanel">
+    <h2>💥 МАШИНА РАЗБИТА!</h2>
+    <div id="crashText" style="text-align:center"></div>
+    <button class="pbtn amber" id="bRepair">🔧 ПОЧИНИТЬ ЗА 🪙 0</button>
+    <button class="pbtn grey" onclick="toGarage()">🔧 ОТКРЫТЬ ГАРАЖ</button>
+  </div>
+
+  <!-- Админка -->
+  <div class="panel" id="pAdmin">
+    <h2>🔑 АДМИН-ПАНЕЛЬ</h2>
+    <div class="prow"><input id="admPass" type="password" placeholder="Пароль" style="padding:12px;border-radius:8px;border:none;font-size:16px"></div>
+    <div id="admBody" style="display:none;width:min(560px,94vw)">
+      <div class="prow">
+        <button class="pbtn green" onclick="admGive()">🪙 +1000 монет</button>
+        <button class="pbtn blue" onclick="admFix()">🔧 Починить</button>
+        <button class="pbtn amber" onclick="admUnlock()">🚙 Открыть все машины</button>
+      </div>
+      <div class="prow"><button class="pbtn red" onclick="admWipe()">❌ УДАЛИТЬ ВСЁ ПРОГРЕСС</button></div>
+    </div>
+    <button class="pbtn grey" onclick="closeAll()">ЗАКРЫТЬ</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ================= ДАННЫЕ ================= */
+const CARS = [
+  {id:'vaz',   name:'Жигули ВАЗ-2101', price:0,    spd:60, dur:3, rep:40,  col:'#c62828'},
+  {id:'oka',   name:'Ока',             price:120,  spd:50, dur:2, rep:25,  col:'#90a4ae'},
+  {id:'msv',   name:'Москвич-412',     price:250,  spd:65, dur:3, rep:45,  col:'#5c6bc0'},
+  {id:'pick',  name:'Пикап',           price:300,  spd:60, dur:5, rep:55,  col:'#6d4c41'},
+  {id:'niva',  name:'Нива',            price:400,  spd:70, dur:4, rep:50,  col:'#f5f5f5'},
+  {id:'volga', name:'Волга ГАЗ-24',    price:550,  spd:75, dur:4, rep:60,  col:'#1565c0'},
+  {id:'uaz',   name:'УАЗ Патриот',     price:700,  spd:70, dur:5, rep:65,  col:'#33691e'},
+  {id:'sport', name:'Спорткар',        price:800,  spd:110,dur:2, rep:90,  col:'#fdd835'},
+  {id:'vesta', name:'Лада Веста',      price:850,  spd:95, dur:3, rep:70,  col:'#ff7043'},
+  {id:'bmw',   name:'BMW M3',          price:1200, spd:120,dur:3, rep:100, col:'#212121'},
+  {id:'merc',  name:'Mercedes S-класс',price:1600, spd:115,dur:4, rep:110, col:'#37474f'},
+  {id:'bolt',  name:'Суперкар «Молния»',price:2500,spd:150,dur:3, rep:150, col:'#00e5ff'}
+];
+const ADMIN_PASS = 'admin123';
+const IS_BETA = /beta/.test(location.search + location.hash) ? true : null;
+/* версия хранится в localStorage, определяется при старте */
+let VERSION = 'orig';
+let saveKey = () => 'autohlam_' + VERSION;
+
+/* ================= СОСТОЯНИЕ ================= */
+let S = { coins:0, dist:0, best:0, owned:['vaz'], cur:'vaz', dmg:0, quality:'auto', ui:1 };
+function load(){ try{ const d=JSON.parse(localStorage.getItem(saveKey())); if(d) S=Object.assign(S,d); }catch(e){} }
+function save(){ try{ localStorage.setItem(saveKey(), JSON.stringify(S)); }catch(e){} }
+function car(){ return CARS.find(c=>c.id===S.cur) || CARS[0]; }
+
+/* ================= РАЗМЕРЫ / КАЧЕСТВО ================= */
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let W=0,H=0,DPR=1;
+function effQuality(){ if(S.quality==='auto') return (navigator.hardwareConcurrency||4) <= 4 ? 'low' : 'high'; return S.quality; }
+function resize(){
+  W = innerWidth; H = innerHeight;
+  const q = effQuality();
+  DPR = q==='low' ? 1 : (q==='medium' ? Math.min(devicePixelRatio,1.5) : Math.min(devicePixelRatio,2));
+  cv.width = W*DPR; cv.height = H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  document.documentElement.style.setProperty('--uiscale', S.ui);
+}
+addEventListener('resize', resize);
+
+/* ================= ВВОД ================= */
+const K = { gas:false, brake:false, left:false, right:false, nitro:false };
+function bindHold(id, prop){
+  const el = document.getElementById(id);
+  const on = e => { e.preventDefault(); K[prop]=true; };
+  const off = e => { e.preventDefault(); K[prop]=false; };
+  el.addEventListener('touchstart', on, {passive:false});
+  el.addEventListener('touchend', off);
+  el.addEventListener('touchcancel', off);
+  el.addEventListener('mousedown', on);
+  el.addEventListener('mouseup', off);
+  el.addEventListener('mouseleave', off);
+}
+bindHold('cG','gas'); bindHold('cB','brake'); bindHold('cL','left'); bindHold('cR','right'); bindHold('cN','nitro');
+addEventListener('keydown', e=>{
+  if(['ArrowUp','KeyW','KeyЦ'].includes(e.code)||e.key==='ц'||e.key==='w'||e.key==='W'||e.key==='ArrowUp') K.gas=true;
+  if(['ArrowDown','KeyS'].includes(e.code)||e.key==='ы'||e.key==='s'||e.key==='S'||e.key==='ArrowDown') K.brake=true;
+  if(['ArrowLeft','KeyA'].includes(e.code)||e.key==='ф'||e.key==='a'||e.key==='A'||e.key==='ArrowLeft') K.left=true;
+  if(['ArrowRight','KeyD'].includes(e.code)||e.key==='в'||e.key==='d'||e.key==='D'||e.key==='ArrowRight') K.right=true;
+  if(e.code==='KeyG') toggleGarage();
+});
+addEventListener('keyup', e=>{
+  if(['ArrowUp','KeyW'].includes(e.code)||['ц','w','W','ArrowUp'].includes(e.key)) K.gas=false;
+  if(['ArrowDown','KeyS'].includes(e.code)||['ы','s','S','ArrowDown'].includes(e.key)) K.brake=false;
+  if(['ArrowLeft','KeyA'].includes(e.code)||['ф','a','A','ArrowLeft'].includes(e.key)) K.left=false;
+  if(['ArrowRight','KeyD'].includes(e.code)||['в','d','D','ArrowRight'].includes(e.key)) K.right=false;
+});
+
+/* ================= МИР ================= */
+let running=false, last=0, t=0;
+let px=0, pv=0, speed=0, worldY=0, spawnT=0, coinT=0;
+let obs=[], coins=[], trees=[];
+let nitroCh=100;
+function laneX(i){ return (i-1)*(W*0.28); }
+
+function resetWorld(){
+  px=0; pv=0; speed=0; worldY=0; obs=[]; coins=[]; trees=[];
+  for(let i=0;i<14;i++) trees.push({x:(Math.random()<.5?-1:1)*(W*0.5+30+Math.random()*120), y:Math.random()*H});
+}
+function spawn(){
+  spawnT -= 1;
+  if(spawnT<=0){
+    spawnT = 40 + Math.random()*40;
+    const lane = Math.floor(Math.random()*3);
+    const kind = Math.random()<0.55 ? 'cone' : 'car';
+    const w = kind==='cone' ? 26 : 64, h = kind==='cone' ? 30 : 110;
+    obs.push({x:laneX(lane), y:-h, w, h, kind, col:['#e53935','#1e88e5','#8e24aa'][Math.floor(Math.random()*3)]});
+  }
+  coinT -= 1;
+  if(coinT<=0){ coinT = 30+Math.random()*30; coins.push({x:laneX(Math.floor(Math.random()*3)), y:-20, r:14}); }
+}
+
+/* ================= ЦИКЛ ================= */
+function loop(ts){
+  if(!running) return;
+  const dt = Math.min((ts-last)/16.7, 3); last = ts;
+  if(S.dmg < 100) update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+function update(dt){
+  const c = car();
+  const maxSpd = c.spd * (VERSION==='beta' && K.nitro && nitroCh>0 ? 1.5 : 1);
+  if(VERSION==='beta' && K.nitro && nitroCh>0) nitroCh = Math.max(0, nitroCh-0.8*dt);
+  else nitroCh = Math.min(100, nitroCh + 0.25*dt);
+
+  if(K.gas) speed += 0.5*dt;
+  else speed -= 0.15*dt;
+  if(K.brake) speed -= 1.2*dt;
+  if(speed<0) speed=0; if(speed>maxSpd) speed=maxSpd;
+
+  pv += ((K.left?-1:0)+(K.right?1:0))*0.9*dt;
+  pv *= 0.9;
+  px += pv*dt;
+  const limit = W*0.5-40;
+  if(px>limit){px=limit; pv=0;} if(px<-limit){px=-limit; pv=0;}
+
+  worldY += speed*dt;
+  S.dist += speed*dt*0.0004;
+  if(S.dist > S.best) S.best = S.dist;
+
+  spawn();
+  const q = effQuality();
+  for(const o of obs) o.y += speed*dt;
+  for(const o of coins) o.y += speed*dt;
+  if(q!=='low'){ for(const tr of trees){ tr.y += speed*dt; if(tr.y>H+60){ tr.y=-60; tr.x=(Math.random()<.5?-1:1)*(W*0.5+30+Math.random()*120);} } }
+  obs = obs.filter(o=>o.y<H+150);
+  coins = coins.filter(o=>o.y<H+40);
+
+  /* столкновения */
+  const pxw = W/2+px, pyw = H-120, pw=56, ph=100;
+  for(const o of obs){
+    if(Math.abs(o.x-pxw) < (o.w+pw)/2 && Math.abs(o.y-pyw) < (o.h+ph)/2){
+      const force = Math.max(4, speed);
+      S.dmg = Math.min(100, S.dmg + force*(o.kind==='cone'?0.8:2.2)/car().dur*1.5);
+      speed *= 0.35;
+      o.y = H+200; /* убираем препятствие */
+      if(S.dmg>=100) crash();
+    }
+  }
+  for(const o of coins){
+    if(Math.abs(o.x-pxw)<30 && Math.abs(o.y-pyw)<60){ o.y=H+40; S.coins+=10; }
+  }
+  hud();
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  /* поле */
+  ctx.fillStyle='#7cb342'; ctx.fillRect(0,0,W,H);
+  /* дорога */
+  const rw = W*0.84;
+  ctx.fillStyle='#424242'; ctx.fillRect((W-rw)/2,0,rw,H);
+  ctx.fillStyle='#ffd600';
+  for(let y=(-worldY%120); y<H; y+=120){ ctx.fillRect(W/2-3,y,6,60); }
+  ctx.fillStyle='#9e9e9e'; ctx.fillRect((W-rw)/2-6,0,6,H); ctx.fillRect((W+rw)/2,0,6,H);
+  /* деревья */
+  if(effQuality()!=='low'){
+    for(const tr of trees){
+      ctx.fillStyle='#5d4037'; ctx.fillRect(tr.x-5,tr.y-10,10,26);
+      ctx.fillStyle='#2e7d32'; ctx.beginPath(); ctx.arc(tr.x,tr.y-18,20,0,7); ctx.fill();
+    }
+  }
+  /* монеты */
+  for(const o of coins){
+    ctx.fillStyle='#ffd54f'; ctx.beginPath(); ctx.arc(o.x,o.y,o.r,0,7); ctx.fill();
+    ctx.fillStyle='#ff8f00'; ctx.font='bold 14px Arial'; ctx.textAlign='center'; ctx.fillText('$',o.x,o.y+5);
+  }
+  /* препятствия */
+  for(const o of obs){
+    if(o.kind==='cone'){
+      ctx.fillStyle='#ff6d00'; ctx.beginPath(); ctx.moveTo(o.x,o.y-o.h/2); ctx.lineTo(o.x+o.w/2,o.y+o.h/2); ctx.lineTo(o.x-o.w/2,o.y+o.h/2); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.fillRect(o.x-o.w/3,o.y-2,o.w/1.5,6);
+    } else {
+      ctx.fillStyle=o.col; ctx.fillRect(o.x-o.w/2,o.y-o.h/2,o.w,o.h);
+      ctx.fillStyle='rgba(255,255,255,.25)'; ctx.fillRect(o.x-o.w/2+6,o.y-o.h/2+8,o.w-12,26);
+    }
+  }
+  /* машина игрока */
+  const pxw=W/2+px, pyw=H-120, pw=56, ph=100, c=car();
+  ctx.save(); ctx.translate(pxw,pyw); ctx.rotate(pv*0.02);
+  ctx.fillStyle='#222'; ctx.fillRect(-pw/2-4,-ph/2+14,pw+8,22); ctx.fillRect(-pw/2-4,ph/2-40,pw+8,22);
+  ctx.fillStyle = c.col; roundRect(-pw/2,-ph/2,pw,ph,10); ctx.fill();
+  ctx.fillStyle='rgba(20,30,50,.8)'; roundRect(-pw/2+7,-ph/2+16,pw-14,30,5); ctx.fill();
+  /* вмятины по урону */
+  if(S.dmg>15){ ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(-pw/2, -ph/2, pw*(S.dmg/100), 6); }
+  if(S.dmg>40){ ctx.fillStyle='rgba(0,0,0,.5)'; ctx.beginPath(); ctx.arc(pw/2-8, 10, 9, 0, 7); ctx.fill(); }
+  if(S.dmg>70){ ctx.fillStyle='rgba(0,0,0,.5)'; ctx.beginPath(); ctx.arc(-pw/2+10, -10, 11, 0, 7); ctx.fill(); }
+  ctx.restore();
+  /* нитро-полоска */
+  if(VERSION==='beta'){
+    ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillRect(W/2-50, H-14, 100, 6);
+    ctx.fillStyle='#00e5ff'; ctx.fillRect(W/2-50, H-14, nitroCh, 6);
+  }
+}
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+/* ================= HUD ================= */
+function hud(){
+  document.getElementById('hCoins').textContent = S.coins;
+  document.getElementById('hDist').textContent = S.dist.toFixed(1)+' км | рекорд: '+S.best.toFixed(1)+' км';
+  document.getElementById('hDmg').textContent = Math.round(S.dmg)+'%';
+  const f = document.getElementById('hDmgFill');
+  f.style.width = S.dmg+'%';
+  f.style.background = S.dmg>70?'#e53935':(S.dmg>35?'#ffb300':'#4caf50');
+  document.getElementById('hSpeed').textContent = Math.round(speed*1.6)+' км/ч';
+}
+
+/* ================= ПАНЕЛИ ================= */
+function show(id){ document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active')); if(id) document.getElementById(id).classList.add('active'); }
+function closeAll(){ show(null); running=true; last=performance.now(); requestAnimationFrame(loop); }
+function toggleGarage(){ if(document.getElementById('pGarage').classList.contains('active')) closeAll(); else toGarage(); }
+function toGarage(){ running=false; renderGarage(); show('pGarage'); }
+function crash(){
+  running=false;
+  const cost = Math.round(car().rep * (1 + S.dmg/50));
+  document.getElementById('crashText').innerHTML = 'Пройдено за поездку: <b>'+S.dist.toFixed(1)+' км</b>.<br>Ремонт стоит 🪙 '+cost;
+  document.getElementById('bRepair').textContent = '🔧 ПОЧИНИТЬ ЗА 🪙 '+cost;
+  document.getElementById('bRepair').onclick = ()=>{ if(S.coins>=cost){ S.coins-=cost; S.dmg=0; save(); closeAll(); } else { alert('Не хватает монет! Нужно 🪙 '+cost); } };
+  show('crashpanel');
+  save();
+}
+
+/* ================= ГАРАЖ ================= */
+function dots(n){ return '●'.repeat(n)+'○'.repeat(5-n); }
+function renderGarage(){
+  document.getElementById('gCoins').textContent = S.coins;
+  const box = document.getElementById('gCars'); box.innerHTML='';
+  for(const c of CARS){
+    const owned = S.owned.includes(c.id);
+    const cur = S.cur===c.id;
+    const d = document.createElement('div'); d.className='carcard';
+    d.innerHTML = '<div class="info"><div class="name">'+(cur?'▶ ':'')+c.name+'</div><div class="stats">Скорость '+dots(Math.round(c.spd/30))+' · Прочность '+dots(c.dur)+' · Ремонт 🪙'+c.rep+'</div></div>';
+    const b = document.createElement('button');
+    if(cur){ b.className='cdis'; b.textContent='ЕДУ'; }
+    else if(owned){ b.className='csel'; b.textContent='ВЫБРАТЬ'; b.onclick=()=>{ S.cur=c.id; S.dmg=0; save(); renderGarage(); }; }
+    else { b.className='cbuy'; b.textContent='🪙 '+c.price; b.onclick=()=>{ if(S.coins>=c.price){ S.coins-=c.price; S.owned.push(c.id); S.cur=c.id; S.dmg=0; save(); renderGarage(); } else alert('Не хватает монет!'); }; }
+    d.appendChild(b); box.appendChild(d);
+  }
+}
+
+/* ================= НАСТРОЙКИ ================= */
+function renderSet(){
+  const segQ=document.getElementById('segQ'); segQ.innerHTML='';
+  ['auto','low','medium','high'].forEach(q=>{ const b=document.createElement('button'); b.textContent={auto:'Авто',low:'Низкое',medium:'Среднее',high:'Высокое'}[q]; if(S.quality===q)b.className='on'; b.onclick=()=>{S.quality=q;save();resize();renderSet();}; segQ.appendChild(b); });
+  const segU=document.getElementById('segUI'); segU.innerHTML='';
+  [0.85,1,1.25].forEach(u=>{ const b=document.createElement('button'); b.textContent={0.85:'Мелкий',1:'Обычный',1.25:'Крупный'}[u]; if(S.ui===u)b.className='on'; b.onclick=()=>{S.ui=u;save();resize();renderSet();}; segU.appendChild(b); });
+}
+
+/* ================= АДМИНКА ================= */
+document.getElementById('admBtn').onclick = ()=>{
+  running=false; show('pAdmin');
+  document.getElementById('admPass').value='';
+  document.getElementById('admBody').style.display='none';
+};
+document.getElementById('admPass').addEventListener('input', function(){
+  if(this.value===ADMIN_PASS){ document.getElementById('admBody').style.display='block'; }
+});
+function admGive(){ S.coins+=1000; save(); renderGarage(); show('pGarage'); }
+function admFix(){ S.dmg=0; save(); renderGarage(); show('pGarage'); }
+function admUnlock(){ S.owned=CARS.map(c=>c.id); save(); renderGarage(); show('pGarage'); }
+function admWipe(){ if(confirm('Точно удалить ВСЁ: монеты, машины и рекорд?')){ localStorage.removeItem(saveKey()); S={coins:0,dist:0,best:0,owned:['vaz'],cur:'vaz',dmg:0,quality:S.quality,ui:S.ui}; save(); renderGarage(); show('pGarage'); } }
+
+/* ================= ПОЛНЫЙ ЭКРАН (безопасно) ================= */
+document.getElementById('bFs').onclick = ()=>{
+  try{
+    if(!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(()=>{});
+    else if(document.exitFullscreen) document.exitFullscreen();
+  }catch(e){}
+};
+
+/* ================= СТАРТ ================= */
+function buildSite(){
+  document.getElementById('carslist').innerHTML = CARS.map(c=>'<b>'+c.name+'</b> — '+(c.price?'🪙 '+c.price:'бесплатно')).join(' · ');
+}
+function startVersion(v){
+  VERSION=v; load(); resize(); resetWorld(); nitroCh=100;
+  document.getElementById('cN').style.display = (v==='beta')?'flex':'none';
+  document.getElementById('site').classList.remove('active');
+  document.getElementById('game').classList.add('active');
+  speed=0; S.dmg=Math.min(S.dmg,99);
+  running=true; last=performance.now(); requestAnimationFrame(loop);
+}
+function toSite(){ running=false; document.getElementById('game').classList.remove('active'); document.getElementById('site').classList.add('active'); save(); }
+document.getElementById('bGarage').onclick = toGarage;
+document.getElementById('bSet').onclick = ()=>{ running=false; renderSet(); show('pSet'); };
+document.getElementById('bSite').onclick = toSite;
+document.getElementById('bRepair').onclick = ()=>{};
+
+buildSite(); resize();
+</script>
+</body>
+</html>

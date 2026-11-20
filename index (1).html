@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Автохлам — скачать игру</title>
+<style>
+body{ margin:0; font-family:sans-serif; background:#1a1c22; color:#eee; min-height:100vh;
+ display:flex; flex-direction:column; align-items:center; padding:24px; }
+h1{ color:#ffd54f; margin-bottom:4px; }
+p.sub{ color:#9fa8b2; margin-top:0; }
+.grid{ display:flex; flex-wrap:wrap; gap:18px; justify-content:center; max-width:900px; }
+.card{ background:#263238; border-radius:16px; padding:22px; width:260px; text-align:center; }
+.card h2{ margin:0 0 6px; }
+.card .tag{ display:inline-block; font-size:12px; padding:3px 10px; border-radius:20px; margin-bottom:10px; }
+.tag.new{ background:#43a047; } .tag.beta{ background:#fb8c00; }
+.card p{ font-size:14px; color:#b0bec5; min-height:60px; }
+.btn{ display:inline-block; padding:12px 22px; border-radius:10px; font-weight:bold; text-decoration:none; margin:4px; }
+.dl{ background:#ffd54f; color:#222; }
+.play{ background:#1e88e5; color:#fff; }
+footer{ margin-top:30px; font-size:12px; color:#78909c; text-align:center; }
+</style>
+</head>
+<body>
+<h1>🚗 Автохлам</h1>
+<p class="sub">Гонки с авариями, ремонтом и гаражом. Играй на телефоне или компьютере!</p>
+<div class="grid">
+  <div class="card">
+    <h2>Автохлам 3D</h2>
+    <span class="tag new">НОВОЕ · 3D</span>
+    <p>Объёмная графика, камера за машиной, педаль газа 🛞 и тормоза прямо на экране. 12 машин, нитро, админ-панель.</p>
+    <a class="btn dl" href="car_game_3d.html" download>⬇ Скачать</a>
+    <a class="btn play" href="car_game_3d.html">▶ Играть</a>
+  </div>
+  <div class="card">
+    <h2>Оригинал (2D)</h2>
+    <span class="tag beta">Стабильно</span>
+    <p>Классическая версия сверху-снизу. Лёгкая, работает даже на слабых телефонах.</p>
+    <a class="btn dl" href="car_game_original.html" download>⬇ Скачать</a>
+    <a class="btn play" href="car_game_original.html">▶ Играть</a>
+  </div>
+  <div class="card">
+    <h2>Beta (2D)</h2>
+    <span class="tag beta">Beta</span>
+    <p>Экспериментальная версия с нитро 💨. Прогресс хранится отдельно от оригинала.</p>
+    <a class="btn dl" href="car_game_beta.html" download>⬇ Скачать</a>
+    <a class="btn play" href="car_game_beta.html">▶ Играть</a>
+  </div>
+</div>
+<footer>Админ-пароль в 3D-версии: admin123 (можно поменять в коде игры).<br>Сделано с ❤ на GitHub Pages</footer>
+</body>
+</html>
